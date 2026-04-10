@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SparkInvoice</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --y: #F5C400; --y2: #e6b800;
+  --bg: #0C0C0C; --s1: #141414; --s2: #1C1C1C; --s3: #252525;
+  --line: #2A2A2A; --txt: #EFEFEF; --sub: #666;
+  --red: #E04040; --green: #2ECC71; --orange: #E67E22;
+  --r: 10px;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --display: Impact, 'Arial Narrow', Arial, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { font-size: 15px; }
+body { background: var(--bg); color: var(--txt); font-family: var(--font); min-height: 100vh; }
+
+/* ── AUTH SCREEN ── */
+#auth-screen {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 24px;
+}
+.auth-logo { font-family: var(--display); font-size: 2.4rem; color: var(--y); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 4px; }
+.auth-bolt { font-size: 2rem; }
+.auth-tag { font-size: 0.72rem; color: var(--sub); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 36px; }
+.auth-box { background: var(--s1); border: 1px solid var(--line); border-radius: 14px; padding: 24px; width: 100%; max-width: 380px; }
+.auth-tabs { display: flex; background: var(--s2); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+.auth-tab { flex: 1; text-align: center; padding: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; color: var(--sub); border: none; background: none; font-family: var(--font); transition: all 0.12s; }
+.auth-tab.active { background: var(--y); color: #000; }
+.auth-field { margin-bottom: 12px; }
+.auth-field label { display: block; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sub); margin-bottom: 5px; }
+.auth-field input { background: var(--s2); border: 1px solid var(--s3); color: var(--txt); padding: 12px; font-family: var(--font); font-size: 1rem; border-radius: 8px; outline: none; width: 100%; transition: border-color 0.12s; }
+.auth-field input:focus { border-color: var(--y); }
+.auth-btn { width: 100%; padding: 14px; background: var(--y); color: #000; font-family: var(--font); font-size: 1rem; font-weight: 800; border: none; border-radius: 8px; cursor: pointer; margin-top: 4px; transition: background 0.12s; }
+.auth-btn:active { background: var(--y2); }
+.auth-err { background: #2b0d0d; border: 1px solid var(--red); color: var(--red); border-radius: 8px; padding: 10px 12px; font-size: 0.82rem; margin-bottom: 12px; display: none; }
+.auth-ok { background: #0d2b1a; border: 1px solid var(--green); color: var(--green); border-radius: 8px; padding: 10px 12px; font-size: 0.82rem; margin-bottom: 12px; display: none; }
+.trial-badge { background: var(--y); color: #000; border-radius: 8px; padding: 10px 14px; font-size: 0.8rem; font-weight: 700; text-align: center; margin-bottom: 16px; }
+.trial-badge span { display: block; font-size: 1.1rem; font-weight: 800; }
+
+/* ── LOADING ── */
+#loading-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--line); border-top-color: var(--y); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── NAV ── */
+.nav { background: var(--y); display: flex; align-items: center; padding: 0 14px; height: 52px; position: sticky; top: 0; z-index: 200; gap: 8px; }
+.nav-logo { font-family: var(--display); font-size: 1.45rem; color: #000; letter-spacing: 2px; text-transform: uppercase; }
+.nav-bolt { font-size: 1.1rem; }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.nav-user { font-size: 0.6rem; font-weight: 800; color: #555; letter-spacing: 0.08em; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-btn { background: rgba(0,0,0,0.15); border: none; border-radius: 6px; padding: 5px 8px; font-size: 0.8rem; cursor: pointer; font-family: var(--font); font-weight: 700; color: #333; }
+
+/* ── BOTTOM TABS ── */
+.btabs { position: fixed; bottom: 0; left: 0; right: 0; background: var(--s1); border-top: 1px solid var(--line); display: flex; z-index: 200; padding-bottom: env(safe-area-inset-bottom); }
+.btab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 4px 8px; cursor: pointer; color: var(--sub); font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; gap: 3px; user-select: none; border: none; background: none; transition: color 0.12s; }
+.btab .ico { font-size: 1.2rem; line-height: 1; }
+.btab.active { color: var(--y); }
+
+/* ── SCREENS ── */
+.screen { display: none; padding: 12px 12px 88px; max-width: 780px; margin: 0 auto; }
+.screen.active { display: block; animation: fadeIn 0.12s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── SECTION ── */
+.sec { margin-bottom: 16px; }
+.sec-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.sec-title { font-family: var(--display); font-size: 0.68rem; letter-spacing: 3px; color: var(--y); text-transform: uppercase; white-space: nowrap; }
+.sec-line { flex: 1; height: 1px; background: var(--line); }
+
+/* ── CARD ── */
+.card { background: var(--s1); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; }
+
+/* ── GRID ── */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ── FIELD ── */
+.field { display: flex; flex-direction: column; gap: 4px; }
+.flbl { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sub); }
+input, select, textarea {
+  background: var(--s2); border: 1px solid var(--s3); color: var(--txt);
+  padding: 11px 12px; font-family: var(--font); font-size: 1rem;
+  border-radius: 8px; outline: none; width: 100%; transition: border-color 0.12s;
+  -webkit-appearance: none; appearance: none;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--y); }
+input::placeholder, textarea::placeholder { color: #333; }
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+textarea { resize: none; min-height: 68px; line-height: 1.5; font-size: 0.9rem; }
+
+/* ── TYPE TOGGLE ── */
+.type-toggle { display: flex; background: var(--s2); border: 1px solid var(--s3); border-radius: 8px; overflow: hidden; }
+.type-opt { flex: 1; text-align: center; padding: 11px 8px; font-size: 0.88rem; font-weight: 700; cursor: pointer; color: var(--sub); border: none; background: none; font-family: var(--font); transition: all 0.12s; }
+.type-opt.active { background: var(--y); color: #000; }
+
+/* ── AUTOCOMPLETE ── */
+.ac-wrap { position: relative; }
+.ac-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--s2); border: 1px solid var(--y); border-radius: 8px; z-index: 50; overflow: hidden; margin-top: 2px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+.ac-item { padding: 11px 12px; font-size: 0.9rem; cursor: pointer; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+.ac-item:last-child { border-bottom: none; }
+.ac-item:active { background: var(--s3); }
+.ac-name { font-weight: 700; }
+.ac-sub { font-size: 0.74rem; color: var(--sub); }
+
+/* ── QUICK JOBS ── */
+.jobs-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.jobs-scroll::-webkit-scrollbar { display: none; }
+.job-chip { flex-shrink: 0; background: var(--s2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; cursor: pointer; transition: border-color 0.12s; min-width: 110px; text-align: center; }
+.job-chip:active { border-color: var(--y); background: var(--s3); }
+.job-chip-name { font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
+.job-chip-price { font-size: 0.7rem; color: var(--y); margin-top: 2px; font-weight: 700; }
+
+/* ── LINE ITEMS ── */
+.line-item { background: var(--s2); border: 1px solid var(--s3); border-radius: 8px; padding: 10px 10px 10px 12px; margin-bottom: 8px; position: relative; animation: slideIn 0.12s ease; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.line-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.line-top input { flex: 1; font-size: 0.95rem; font-weight: 600; padding: 8px 10px; }
+.line-del { background: none; border: none; color: #3a3a3a; font-size: 1rem; cursor: pointer; padding: 6px; line-height: 1; flex-shrink: 0; }
+.line-del:active { color: var(--red); }
+.line-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: end; }
+.line-total-val { background: var(--s1); border: 1px solid var(--line); border-radius: 8px; padding: 10px 8px; font-size: 0.95rem; font-weight: 700; color: var(--y); text-align: center; }
+.add-btn { width: 100%; padding: 12px; background: transparent; border: 1.5px dashed var(--line); color: var(--sub); font-family: var(--font); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 8px; cursor: pointer; }
+.add-btn:active { border-color: var(--y); color: var(--y); }
+
+/* ── VAT TOGGLE ── */
+.vat-toggle { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--s1); border: 1px solid var(--line); border-radius: 8px; }
+.vat-toggle-lbl { font-size: 0.85rem; font-weight: 600; }
+.vat-toggle-sub { font-size: 0.72rem; color: var(--sub); margin-top: 1px; }
+.toggle-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--s3); border-radius: 24px; cursor: pointer; transition: background 0.2s; }
+.toggle-slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+input:checked + .toggle-slider { background: var(--y); }
+input:checked + .toggle-slider:before { transform: translateX(20px); background: #000; }
+
+/* ── TOTALS ── */
+.totals-box { background: var(--s1); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; margin-top: 12px; }
+.tot-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+.tot-row:last-child { border-bottom: none; }
+.tot-row .l { color: var(--sub); }
+.tot-row .v { font-weight: 700; }
+.tot-row.grand { background: var(--y); padding: 13px 14px; }
+.tot-row.grand .l, .tot-row.grand .v { color: #000; font-family: var(--display); font-size: 1.25rem; letter-spacing: 2px; }
+
+/* ── BUTTONS ── */
+.btn { font-family: var(--font); font-weight: 800; font-size: 0.88rem; cursor: pointer; border: none; border-radius: 8px; padding: 13px 16px; transition: all 0.12s; user-select: none; text-align: center; display: inline-block; }
+.btn-y { background: var(--y); color: #000; }
+.btn-y:active { background: var(--y2); transform: scale(0.98); }
+.btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--sub); }
+.btn-ghost:active { border-color: #555; color: var(--txt); }
+.btn-green { background: var(--green); color: #000; }
+.btn-red { background: var(--red); color: #fff; }
+.btn-wa { background: #25D366; color: #fff; }
+.btn-mail { background: #2D6CDF; color: #fff; }
+.act { display: flex; gap: 8px; margin-top: 14px; }
+
+/* ── BADGES ── */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.badge-paid { background: #0d2b1a; color: var(--green); border: 1px solid var(--green); }
+.badge-unpaid { background: #2a1a00; color: var(--orange); border: 1px solid var(--orange); }
+.badge-overdue { background: #2b0d0d; color: var(--red); border: 1px solid var(--red); }
+
+/* ── DASHBOARD ── */
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.dash-card { background: var(--s1); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; }
+.dash-val { font-family: var(--display); font-size: 1.7rem; color: var(--y); letter-spacing: 1px; margin-bottom: 2px; }
+.dash-val.red { color: var(--red); }
+.dash-lbl { font-size: 0.63rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sub); }
+
+/* ── INV LIST ── */
+.inv-list { display: flex; flex-direction: column; gap: 8px; }
+.inv-card { background: var(--s1); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.inv-card:active { border-color: var(--y); }
+.inv-card-left { flex: 1; min-width: 0; }
+.inv-card-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inv-card-meta { font-size: 0.72rem; color: var(--sub); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.inv-card-right { text-align: right; flex-shrink: 0; }
+.inv-card-amt { font-family: var(--display); font-size: 1.1rem; color: var(--y); letter-spacing: 1px; }
+.empty-state { text-align: center; padding: 36px 20px; color: var(--sub); font-size: 0.86rem; }
+.empty-state .ico { font-size: 2.2rem; margin-bottom: 8px; }
+
+/* ── PREVIEW ── */
+.prev-actions { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.prev-actions .btn { flex: 1; min-width: 70px; font-size: 0.76rem; padding: 10px 6px; }
+.status-bar { margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#inv-preview { background: #fff; color: #111; border-radius: 10px; padding: 22px 18px 26px; font-family: var(--font); font-size: 13px; line-height: 1.6; box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
+.ih { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 3px solid #F5C400; margin-bottom: 16px; gap: 10px; }
+.ih-name { font-family: var(--display); font-size: 1.35rem; color: #111; letter-spacing: 2px; text-transform: uppercase; line-height: 1.1; }
+.ih-sub { font-size: 0.7rem; color: #666; margin-top: 4px; line-height: 1.6; }
+.ih-right { text-align: right; flex-shrink: 0; }
+.ih-type { font-family: var(--display); font-size: 1.15rem; color: #111; letter-spacing: 2px; text-transform: uppercase; }
+.ih-meta { font-size: 0.7rem; color: #666; margin-top: 3px; line-height: 1.7; }
+.ip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.ip-lbl { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #bbb; margin-bottom: 3px; }
+.ip-name { font-weight: 700; font-size: 0.86rem; color: #111; }
+.ip-detail { font-size: 0.74rem; color: #555; line-height: 1.55; }
+.it { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.it col.c1{width:44%} .it col.c2{width:10%} .it col.c3{width:23%} .it col.c4{width:23%}
+.it thead tr { background: #111; }
+.it th { font-family: var(--display); color: #F5C400; font-size: 0.7rem; letter-spacing: 1.5px; padding: 9px 10px; text-align: left; font-weight: 400; text-transform: uppercase; }
+.it th:not(:first-child) { text-align: right; }
+.it td { padding: 9px 10px; border-bottom: 1px solid #f0f0f0; font-size: 0.82rem; color: #333; word-break: break-word; }
+.it td:not(:first-child) { text-align: right; white-space: nowrap; }
+.it tbody tr:last-child td { border-bottom: none; }
+.it tbody tr:nth-child(even) { background: #f9f9f9; }
+.it tfoot td { padding: 7px 10px; font-size: 0.8rem; color: #555; border-bottom: 1px solid #f0f0f0; text-align: right; }
+.it tfoot tr:first-child td { border-top: 2px solid #e0e0e0; }
+.it tfoot tr.grand td { font-family: var(--display); font-size: 1.1rem; background: #111; color: #F5C400; border: none; letter-spacing: 2px; padding: 10px; }
+.i-notes { margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee; font-size: 0.74rem; color: #666; line-height: 1.65; }
+.i-notes strong { display: block; font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: #333; margin-bottom: 4px; }
+.i-footer { margin-top: 20px; text-align: center; font-size: 0.64rem; color: #ccc; }
+
+/* ── SYNC INDICATOR ── */
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; margin-left: 4px; }
+.sync-dot.syncing { background: var(--orange); animation: pulse 1s infinite; }
+.sync-dot.error { background: var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(8px); background: var(--y); color: #000; font-weight: 800; font-size: 0.82rem; padding: 9px 18px; border-radius: 20px; z-index: 500; opacity: 0; transition: opacity 0.18s, transform 0.18s; pointer-events: none; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── DESKTOP ── */
+@media (min-width: 600px) {
+  .screen { padding: 24px 24px 88px; }
+  #inv-preview { padding: 44px 48px 40px; font-size: 14px; }
+  .ih-name { font-size: 2rem; } .ih-type { font-size: 1.6rem; }
+  .it th { font-size: 0.8rem; padding: 11px 14px; }
+  .it td { font-size: 0.88rem; padding: 11px 14px; }
+  .jobs-scroll { flex-wrap: wrap; overflow-x: visible; }
+  #auth-screen { background: radial-gradient(ellipse at center, #1a1a00 0%, var(--bg) 70%); }
+}
+
+/* ── PRINT ── */
+@media print {
+  body { background: #fff !important; }
+  .nav, .btabs, .prev-actions, .status-bar, #screen-form, #screen-dash, #screen-jobs, #screen-settings { display: none !important; }
+  .screen { padding: 0 !important; max-width: 100% !important; }
+  #screen-preview { display: block !important; }
+  #inv-preview { box-shadow: none !important; border-radius: 0 !important; padding: 20px 24px !important; }
+  .panel { display: block !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <div style="color:var(--sub);font-size:0.82rem">Loading SparkInvoice...</div>
+</div>
+
+<!-- AUTH -->
+<div id="auth-screen" style="display:none">
+  <div style="text-align:center;margin-bottom:8px">
+    <div class="auth-bolt">⚡</div>
+    <div class="auth-logo">SparkInvoice</div>
+    <div class="auth-tag">Professional Invoicing for Electricians</div>
+  </div>
+  <div class="trial-badge">🎉 <span>14-Day Free Trial</span>No card needed to sign up</div>
+  <div class="auth-box">
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="at-login" onclick="authTab('login')">Log In</button>
+      <button class="auth-tab" id="at-signup" onclick="authTab('signup')">Sign Up Free</button>
+    </div>
+    <div id="auth-err" class="auth-err"></div>
+    <div id="auth-ok" class="auth-ok"></div>
+    <div class="auth-field"><label>Email</label><input type="email" id="a-email" placeholder="you@example.com" autocomplete="email"></div>
+    <div class="auth-field"><label>Password</label><input type="password" id="a-pass" placeholder="Min. 6 characters" autocomplete="current-password"></div>
+    <div id="signup-extra" style="display:none">
+      <div class="auth-field"><label>Business / Your Name</label><input type="text" id="a-bizname" placeholder="J. Smith Electrical"></div>
+    </div>
+    <button class="auth-btn" id="auth-submit" onclick="doAuth()">Log In</button>
+    <div style="text-align:center;margin-top:14px;font-size:0.76rem;color:var(--sub)" id="auth-switch-txt">
+      No account? <span style="color:var(--y);cursor:pointer;font-weight:700" onclick="authTab('signup')">Sign up free →</span>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+
+  <!-- NAV -->
+  <div class="nav">
+    <span class="nav-bolt">⚡</span>
+    <div class="nav-logo">SparkInvoice</div>
+    <div class="nav-right">
+      <span class="sync-dot" id="sync-dot" title="Synced"></span>
+      <span class="nav-user" id="nav-user"></span>
+      <button class="nav-btn" onclick="doLogout()">Log out</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="screen-dash" class="screen active">
+    <div class="dash-grid">
+      <div class="dash-card"><div class="dash-val" id="d-week">£0</div><div class="dash-lbl">This Week</div></div>
+      <div class="dash-card"><div class="dash-val" id="d-month">£0</div><div class="dash-lbl">This Month</div></div>
+      <div class="dash-card"><div class="dash-val red" id="d-unpaid">0</div><div class="dash-lbl">Unpaid</div></div>
+      <div class="dash-card"><div class="dash-val red" id="d-overdue">0</div><div class="dash-lbl">Overdue</div></div>
+    </div>
+    <button class="btn btn-y" style="width:100%;margin-bottom:16px;font-size:1rem;padding:15px" onclick="newInvoice()">⚡ New Invoice / Quote</button>
+    <div class="sec-head"><div class="sec-title">Recent</div><div class="sec-line"></div></div>
+    <div id="recent-list" class="inv-list"></div>
+  </div>
+
+  <!-- FORM -->
+  <div id="screen-form" class="screen">
+    <div class="sec">
+      <div class="type-toggle">
+        <button class="type-opt active" id="tog-quote" onclick="setType('Quote')">Quote</button>
+        <button class="type-opt" id="tog-invoice" onclick="setType('Invoice')">Invoice</button>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-head"><div class="sec-title">Quick Jobs</div><div class="sec-line"></div><button onclick="showTab('jobs')" style="background:none;border:none;color:var(--sub);font-size:0.7rem;cursor:pointer;font-family:var(--font);font-weight:700;white-space:nowrap">Manage →</button></div>
+      <div class="jobs-scroll" id="jobs-scroll"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-head"><div class="sec-title">Customer</div><div class="sec-line"></div></div>
+      <div class="card">
+        <div class="ac-wrap" style="margin-bottom:8px">
+          <div class="flbl" style="margin-bottom:4px">Name</div>
+          <input type="text" id="cust-name" placeholder="Start typing a name..." autocomplete="off" oninput="acSearch(this.value)">
+          <div class="ac-list" id="ac-list" style="display:none"></div>
+        </div>
+        <div class="g2" style="margin-bottom:8px">
+          <div class="field"><div class="flbl">Phone / WhatsApp</div><input type="tel" id="cust-phone" placeholder="07700 111111"></div>
+          <div class="field"><div class="flbl">Email</div><input type="email" id="cust-email" placeholder="Optional"></div>
+        </div>
+        <div class="field" style="margin-bottom:8px"><div class="flbl">Job Address</div><input type="text" id="cust-addr" placeholder="12 Oak St, Manchester"></div>
+        <button class="btn btn-ghost" style="width:100%;font-size:0.76rem;padding:9px" onclick="saveCustomer()">💾 Save Customer</button>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-head"><div class="sec-title">Items &amp; Labour</div><div class="sec-line"></div></div>
+      <div id="lines"></div>
+      <button class="add-btn" onclick="addLine()">+ Add Item</button>
+    </div>
+    <div class="sec">
+      <div class="sec-head"><div class="sec-title">Pricing</div><div class="sec-line"></div></div>
+      <div class="card" style="margin-bottom:8px">
+        <div class="g2">
+          <div class="field"><div class="flbl">Labour (£)</div><input type="number" id="labour" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calc()"></div>
+          <div class="field"><div class="flbl">Discount (£)</div><input type="number" id="discount" placeholder="0.00" min="0" step="0.01" inputmode="decimal" oninput="calc()"></div>
+        </div>
+      </div>
+      <div class="vat-toggle">
+        <div><div class="vat-toggle-lbl">Add VAT (20%)</div><div class="vat-toggle-sub">Standard UK rate</div></div>
+        <label class="toggle-switch"><input type="checkbox" id="vat-on" onchange="calc()"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="totals-box">
+        <div class="tot-row"><span class="l">Materials</span><span class="v" id="t-mat">£0.00</span></div>
+        <div class="tot-row"><span class="l">Labour</span><span class="v" id="t-lab">£0.00</span></div>
+        <div class="tot-row" id="disc-row" style="display:none"><span class="l">Discount</span><span class="v" id="t-disc" style="color:var(--red)">−£0.00</span></div>
+        <div class="tot-row"><span class="l">Subtotal</span><span class="v" id="t-sub">£0.00</span></div>
+        <div class="tot-row" id="vat-row" style="display:none"><span class="l">VAT (20%)</span><span class="v" id="t-vat">£0.00</span></div>
+        <div class="tot-row grand"><span class="l">Total</span><span class="v" id="t-tot">£0.00</span></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-title">Notes</div><div class="sec-line"></div>
+        <button onclick="toggleNotes()" id="notes-tog" style="background:none;border:none;color:var(--sub);font-size:0.7rem;cursor:pointer;font-family:var(--font);font-weight:700;white-space:nowrap">+ Add</button>
+      </div>
+      <div id="notes-wrap" style="display:none">
+        <textarea id="notes" placeholder="e.g. All work to BS 7671 18th Edition. Payment due 14 days."></textarea>
+      </div>
+    </div>
+    <div class="act">
+      <button class="btn btn-y" style="flex:3;font-size:1rem;padding:15px" onclick="saveAndPreview()">Preview &amp; Send ⚡</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="clearForm()">Clear</button>
+    </div>
+  </div>
+
+  <!-- PREVIEW -->
+  <div id="screen-preview" class="screen">
+    <div class="prev-actions">
+      <button class="btn btn-wa" onclick="sendWhatsApp()">📲 WhatsApp</button>
+      <button class="btn btn-mail" onclick="sendEmail()">✉️ Email</button>
+      <button class="btn btn-ghost" onclick="window.print()">🖨 PDF</button>
+      <button class="btn btn-ghost" onclick="showScreen('screen-form')">✏️ Edit</button>
+    </div>
+    <div class="status-bar">
+      <span id="status-badge" class="badge badge-unpaid">Unpaid</span>
+      <button class="btn btn-green" style="padding:7px 14px;font-size:0.76rem" onclick="setStatus('paid')">✓ Mark Paid</button>
+      <button class="btn btn-red" style="padding:7px 14px;font-size:0.76rem" onclick="setStatus('overdue')">Overdue</button>
+    </div>
+    <div id="inv-preview"></div>
+  </div>
+
+  <!-- JOBS -->
+  <div id="screen-jobs" class="screen">
+    <div class="sec-head"><div class="sec-title">Saved Jobs</div><div class="sec-line"></div></div>
+    <p style="font-size:0.8rem;color:var(--sub);margin-bottom:12px">Tap a job on the invoice screen to auto-fill in one tap.</p>
+    <div class="card" style="margin-bottom:12px">
+      <div class="flbl" style="margin-bottom:10px;font-size:0.68rem">Add New Job</div>
+      <div class="field" style="margin-bottom:8px"><div class="flbl">Job Name</div><input type="text" id="nj-name" placeholder="e.g. Socket Install"></div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="field"><div class="flbl">Labour (£)</div><input type="number" id="nj-labour" placeholder="0.00" inputmode="decimal"></div>
+        <div class="field"><div class="flbl">Materials (£)</div><input type="number" id="nj-mat" placeholder="0.00" inputmode="decimal"></div>
+      </div>
+      <div class="field" style="margin-bottom:10px"><div class="flbl">Description</div><input type="text" id="nj-desc" placeholder="e.g. Supply & fit double socket"></div>
+      <button class="btn btn-y" style="width:100%" onclick="saveJob()">Save Job</button>
+    </div>
+    <div id="saved-jobs-list"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="screen-settings" class="screen">
+    <div class="sec-head"><div class="sec-title">Your Business</div><div class="sec-line"></div></div>
+    <p style="font-size:0.8rem;color:var(--sub);margin-bottom:12px">Saved once — auto-fills every invoice.</p>
+    <div class="card" style="margin-bottom:12px">
+      <div class="field" style="margin-bottom:8px"><div class="flbl">Business / Your Name</div><input type="text" id="s-biz-name" placeholder="J. Smith Electrical"></div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="field"><div class="flbl">Phone</div><input type="tel" id="s-biz-phone" placeholder="07700 000000"></div>
+        <div class="field"><div class="flbl">Email</div><input type="email" id="s-biz-email" placeholder="you@example.com"></div>
+      </div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="field"><div class="flbl">NICEIC / NAPIT No.</div><input type="text" id="s-biz-reg" placeholder="Optional"></div>
+        <div class="field"><div class="flbl">Payment Terms (days)</div><input type="number" id="s-payment-days" placeholder="14" inputmode="numeric"></div>
+      </div>
+      <div class="g2">
+        <div class="field"><div class="flbl">Default Labour Rate (£)</div><input type="number" id="s-default-labour" placeholder="0.00" inputmode="decimal"></div>
+        <div class="field"><div class="flbl">Default Notes</div><input type="text" id="s-default-notes" placeholder="e.g. Payment 14 days"></div>
+      </div>
+    </div>
+    <button class="btn btn-y" style="width:100%;margin-bottom:8px" onclick="saveSettings()">✓ Save Details</button>
+    <button class="btn btn-ghost" style="width:100%;font-size:0.76rem;margin-bottom:8px" onclick="doLogout()">Log Out</button>
+    <button class="btn btn-ghost" style="width:100%;font-size:0.76rem;color:var(--red);border-color:var(--red)" onclick="clearAllData()">🗑 Clear All My Data</button>
+  </div>
+
+  <!-- BOTTOM TABS -->
+  <div class="btabs">
+    <button class="btab active" id="tab-dash" onclick="showTab('dash')"><span class="ico">📊</span>Dashboard</button>
+    <button class="btab" id="tab-form" onclick="newInvoice()"><span class="ico">⚡</span>New</button>
+    <button class="btab" id="tab-jobs" onclick="showTab('jobs')"><span class="ico">💼</span>Jobs</button>
+    <button class="btab" id="tab-settings" onclick="showTab('settings')"><span class="ico">⚙️</span>Settings</button>
+  </div>
+
+</div><!-- /app -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── SUPABASE ──
+const SUPA_URL = 'https://uacizqpyramgbbqczdhu.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhY2l6cXB5cmFtZ2JicWN6ZGh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MTI3MDQsImV4cCI6MjA5MTM4ODcwNH0.akIllxWGjFkmEy1UT7_GvlIC5mxUD71s9L7Iwc630es';
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ── STATE ──
+let user = null;
+let rows = [], invoices = [], customers = [], savedJobs = [], settings = {};
+let editingId = null, docType = 'Quote', notesOpen = false;
+let nextRef = 1;
+
+// ── UTILS ──
+function g(id) { return (document.getElementById(id)||{}).value||''; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(d) { if(!d) return '—'; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; }
+function fmtAmt(n) { return '£'+parseFloat(n||0).toFixed(2); }
+function pad(n) { return String(n).padStart(3,'0'); }
+
+function toast(msg, dur=2000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur);
+}
+
+function setSyncing(state) {
+  const d = document.getElementById('sync-dot');
+  if (!d) return;
+  d.className = 'sync-dot' + (state==='syncing'?' syncing':state==='error'?' error':'');
+}
+
+// ── AUTH ──
+let authMode = 'login';
+
+function authTab(mode) {
+  authMode = mode;
+  document.getElementById('at-login').classList.toggle('active', mode==='login');
+  document.getElementById('at-signup').classList.toggle('active', mode==='signup');
+  document.getElementById('signup-extra').style.display = mode==='signup'?'block':'none';
+  document.getElementById('auth-submit').textContent = mode==='login'?'Log In':'Create Free Account';
+  document.getElementById('auth-switch-txt').innerHTML = mode==='login'
+    ? 'No account? <span style="color:var(--y);cursor:pointer;font-weight:700" onclick="authTab(\'signup\')">Sign up free →</span>'
+    : 'Already have an account? <span style="color:var(--y);cursor:pointer;font-weight:700" onclick="authTab(\'login\')">Log in →</span>';
+  document.getElementById('auth-err').style.display='none';
+  document.getElementById('auth-ok').style.display='none';
+}
+
+function showAuthErr(msg) {
+  const el = document.getElementById('auth-err');
+  el.textContent = msg; el.style.display='block';
+  document.getElementById('auth-ok').style.display='none';
+}
+
+function showAuthOk(msg) {
+  const el = document.getElementById('auth-ok');
+  el.textContent = msg; el.style.display='block';
+  document.getElementById('auth-err').style.display='none';
+}
+
+async function doAuth() {
+  const email = g('a-email').trim();
+  const pass = g('a-pass');
+  const btn = document.getElementById('auth-submit');
+  if (!email || !pass) { showAuthErr('Please enter your email and password.'); return; }
+  btn.textContent = '...'; btn.disabled = true;
+
+  if (authMode === 'signup') {
+    const bizName = g('a-bizname').trim();
+    const { error } = await sb.auth.signUp({ email, password: pass, options: { data: { biz_name: bizName } } });
+    if (error) { showAuthErr(error.message); btn.textContent='Create Free Account'; btn.disabled=false; return; }
+    showAuthOk('✓ Account created! Check your email to confirm, then log in.');
+    authTab('login');
+    btn.disabled=false;
+  } else {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) { showAuthErr('Incorrect email or password.'); btn.textContent='Log In'; btn.disabled=false; return; }
+    user = data.user;
+    await bootApp();
+  }
+}
+
+// Allow Enter key on auth fields
+document.addEventListener('keydown', e => { if (e.key==='Enter' && document.getElementById('auth-screen').style.display!=='none') doAuth(); });
+
+async function doLogout() {
+  await sb.auth.signOut();
+  user = null; invoices=[]; customers=[]; savedJobs=[]; settings={};
+  document.getElementById('app').style.display='none';
+  document.getElementById('auth-screen').style.display='flex';
+  authTab('login');
+}
+
+// ── BOOT ──
+async function bootApp() {
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('nav-user').textContent = user.email;
+
+  await Promise.all([loadInvoices(), loadCustomers(), loadJobs(), loadSettings()]);
+
+  nextRef = invoices.length + 1;
+  renderJobChips();
+  renderDash();
+  clearForm();
+}
+
+// ── CLOUD: INVOICES ──
+async function loadInvoices() {
+  const { data } = await sb.from('invoices').select('*').eq('user_id', user.id).order('created_at', { ascending: true });
+  invoices = (data||[]).map(r => r.data);
+}
+
+async function syncInvoice(inv) {
+  setSyncing('syncing');
+  const { error } = await sb.from('invoices').upsert({ id: inv.id, user_id: user.id, data: inv });
+  setSyncing(error ? 'error' : '');
+  if (error) toast('⚠ Sync failed — saved locally');
+}
+
+async function deleteInvoiceCloud(id) {
+  await sb.from('invoices').delete().eq('id', id).eq('user_id', user.id);
+}
+
+// ── CLOUD: CUSTOMERS ──
+async function loadCustomers() {
+  const { data } = await sb.from('customers').select('*').eq('user_id', user.id);
+  customers = (data||[]).map(r => r.data);
+}
+
+async function syncCustomer(c) {
+  await sb.from('customers').upsert({ id: c.id, user_id: user.id, data: c });
+}
+
+// ── CLOUD: JOBS ──
+async function loadJobs() {
+  const { data } = await sb.from('saved_jobs').select('*').eq('user_id', user.id);
+  savedJobs = (data||[]).map(r => r.data);
+  if (savedJobs.length === 0) {
+    savedJobs = [
+      { id: 'j1', name: 'Socket Install', labour: 80, mat: 25, desc: 'Supply & fit 13A double socket' },
+      { id: 'j2', name: 'Light Fitting', labour: 60, mat: 20, desc: 'Supply & fit ceiling light fitting' },
+      { id: 'j3', name: 'Consumer Unit', labour: 300, mat: 180, desc: 'Consumer unit replacement (18th ed.)' },
+      { id: 'j4', name: 'EV Charger', labour: 250, mat: 120, desc: 'EV charger supply & installation' },
+      { id: 'j5', name: 'Fault Finding', labour: 120, mat: 0, desc: 'Fault finding & diagnosis' },
+      { id: 'j6', name: 'Rewire (room)', labour: 400, mat: 150, desc: 'Single room full rewire' },
+    ];
+    for (const j of savedJobs) await sb.from('saved_jobs').upsert({ id: j.id, user_id: user.id, data: j });
+  }
+}
+
+async function syncJob(j) {
+  await sb.from('saved_jobs').upsert({ id: String(j.id), user_id: user.id, data: j });
+}
+
+async function deleteJobCloud(id) {
+  await sb.from('saved_jobs').delete().eq('id', String(id)).eq('user_id', user.id);
+}
+
+// ── CLOUD: SETTINGS ──
+async function loadSettings() {
+  const { data } = await sb.from('settings').select('*').eq('user_id', user.id).single();
+  settings = data ? data.data : {};
+  // Pre-fill biz name from signup if first time
+  if (!settings['biz-name'] && user.user_metadata?.biz_name) {
+    settings['biz-name'] = user.user_metadata.biz_name;
+  }
+}
+
+async function syncSettings() {
+  await sb.from('settings').upsert({ user_id: user.id, data: settings, updated_at: new Date().toISOString() });
+}
+
+// ── NAV ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function showTab(tab) {
+  document.querySelectorAll('.btab').forEach(b=>b.classList.remove('active'));
+  const el = document.getElementById('tab-'+tab);
+  if (el) el.classList.add('active');
+  const map = { dash:'screen-dash', form:'screen-form', jobs:'screen-jobs', settings:'screen-settings' };
+  showScreen(map[tab]);
+  if (tab==='dash') renderDash();
+  if (tab==='jobs') renderSavedJobsList();
+  if (tab==='settings') loadSettingsUI();
+}
+
+function newInvoice() {
+  editingId = null; clearForm();
+  document.querySelectorAll('.btab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-form').classList.add('active');
+  showScreen('screen-form');
+}
+
+// ── TYPE ──
+function setType(t) {
+  docType = t;
+  document.getElementById('tog-quote').classList.toggle('active', t==='Quote');
+  document.getElementById('tog-invoice').classList.toggle('active', t==='Invoice');
+}
+
+// ── NOTES ──
+function toggleNotes() {
+  notesOpen = !notesOpen;
+  document.getElementById('notes-wrap').style.display = notesOpen?'block':'none';
+  document.getElementById('notes-tog').textContent = notesOpen?'− Hide':'+ Add';
+}
+
+// ── SETTINGS UI ──
+function loadSettingsUI() {
+  ['biz-name','biz-phone','biz-email','biz-reg','default-notes','default-labour','payment-days'].forEach(k=>{
+    const el=document.getElementById('s-'+k);
+    if (el && settings[k]!==undefined) el.value=settings[k];
+  });
+}
+
+async function saveSettings() {
+  ['biz-name','biz-phone','biz-email','biz-reg','default-notes','default-labour','payment-days'].forEach(k=>{
+    const el=document.getElementById('s-'+k);
+    if (el) settings[k]=el.value;
+  });
+  await syncSettings();
+  toast('✓ Settings saved');
+}
+
+async function clearAllData() {
+  if (!confirm('Delete ALL your invoices, customers and jobs? Cannot be undone.')) return;
+  await Promise.all([
+    sb.from('invoices').delete().eq('user_id', user.id),
+    sb.from('customers').delete().eq('user_id', user.id),
+    sb.from('saved_jobs').delete().eq('user_id', user.id),
+    sb.from('settings').delete().eq('user_id', user.id),
+  ]);
+  invoices=[]; customers=[]; savedJobs=[]; settings={};
+  renderDash(); renderJobChips();
+  toast('All data cleared');
+}
+
+// ── DASHBOARD ──
+function renderDash() {
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate()-now.getDay());
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  let weekTotal=0, monthTotal=0, unpaid=0, overdue=0;
+  invoices.forEach(inv=>{
+    const d=new Date(inv.savedAt);
+    if (inv.status==='paid') { if(d>=weekStart)weekTotal+=inv.total; if(d>=monthStart)monthTotal+=inv.total; }
+    if (inv.status==='unpaid') unpaid++;
+    if (inv.status==='overdue') overdue++;
+  });
+  document.getElementById('d-week').textContent='£'+weekTotal.toFixed(0);
+  document.getElementById('d-month').textContent='£'+monthTotal.toFixed(0);
+  document.getElementById('d-unpaid').textContent=unpaid;
+  document.getElementById('d-overdue').textContent=overdue;
+
+  const recent=[...invoices].reverse().slice(0,10);
+  const list=document.getElementById('recent-list');
+  if (!recent.length) { list.innerHTML=`<div class="empty-state"><div class="ico">📋</div>No invoices yet.<br>Tap New to get started.</div>`; return; }
+  list.innerHTML=recent.map(inv=>`
+    <div class="inv-card" onclick="openInvoice('${inv.id}')">
+      <div class="inv-card-left">
+        <div class="inv-card-name">${esc(inv.custName||'No name')}</div>
+        <div class="inv-card-meta">${esc(inv.ref||'')} · ${fmt(inv.issueDate)} · <span class="badge badge-${inv.status}">${inv.status}</span></div>
+      </div>
+      <div class="inv-card-right"><div class="inv-card-amt">${fmtAmt(inv.total)}</div></div>
+    </div>`).join('');
+}
+
+function openInvoice(id) {
+  const inv=invoices.find(i=>i.id===id);
+  if (!inv) return;
+  editingId=id;
+  loadInvoiceIntoForm(inv);
+  document.querySelectorAll('.btab').forEach(b=>b.classList.remove('active'));
+  showScreen('screen-preview');
+  renderPreview();
+  updateStatusBadge(inv.status);
+}
+
+function loadInvoiceIntoForm(inv) {
+  docType=inv.docType||'Quote'; setType(docType);
+  rows=inv.rows?JSON.parse(JSON.stringify(inv.rows)):[];
+  ['cust-name','cust-phone','cust-email','cust-addr','labour','discount','notes'].forEach(k=>{
+    const el=document.getElementById(k);
+    if (el&&inv[k]!==undefined) el.value=inv[k];
+  });
+  document.getElementById('vat-on').checked=!!inv.vatOn;
+  if (inv.notes) { notesOpen=true; document.getElementById('notes-wrap').style.display='block'; document.getElementById('notes-tog').textContent='− Hide'; }
+  renderLines(); calc();
+}
+
+// ── JOBS ──
+function renderJobChips() {
+  const scroll=document.getElementById('jobs-scroll');
+  if (!scroll) return;
+  scroll.innerHTML=savedJobs.map(j=>`
+    <div class="job-chip" onclick="applyJob('${j.id}')">
+      <div class="job-chip-name">${esc(j.name)}</div>
+      <div class="job-chip-price">£${(j.labour+j.mat).toFixed(0)}</div>
+    </div>`).join('');
+}
+
+function applyJob(id) {
+  const job=savedJobs.find(j=>String(j.id)===String(id));
+  if (!job) return;
+  if (job.labour>0) document.getElementById('labour').value=job.labour;
+  if (job.desc||job.mat>0) addLine(job.desc||job.name,1,job.mat);
+  calc(); toast(`⚡ ${job.name} added`);
+}
+
+async function saveJob() {
+  const name=g('nj-name').trim();
+  if (!name) { toast('Enter a job name'); return; }
+  const j={ id:'j'+Date.now(), name, labour:parseFloat(g('nj-labour'))||0, mat:parseFloat(g('nj-mat'))||0, desc:g('nj-desc').trim() };
+  savedJobs.push(j);
+  await syncJob(j);
+  ['nj-name','nj-labour','nj-mat','nj-desc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderSavedJobsList(); renderJobChips(); toast('✓ Job saved');
+}
+
+async function deleteJob(id) {
+  if (!confirm('Delete this job?')) return;
+  savedJobs=savedJobs.filter(j=>String(j.id)!==String(id));
+  await deleteJobCloud(id);
+  renderSavedJobsList(); renderJobChips(); toast('Job deleted');
+}
+
+function editJob(id) { renderSavedJobsList(id); }
+
+async function updateJob(id) {
+  const j=savedJobs.find(j=>String(j.id)===String(id));
+  if (!j) return;
+  const name=document.getElementById(`ej-name-${id}`).value.trim();
+  if (!name) { toast('Name required'); return; }
+  j.name=name;
+  j.labour=parseFloat(document.getElementById(`ej-labour-${id}`).value)||0;
+  j.mat=parseFloat(document.getElementById(`ej-mat-${id}`).value)||0;
+  j.desc=document.getElementById(`ej-desc-${id}`).value.trim();
+  await syncJob(j);
+  renderSavedJobsList(); renderJobChips(); toast(`✓ ${name} updated`);
+}
+
+function renderSavedJobsList(editingJobId=null) {
+  const el=document.getElementById('saved-jobs-list');
+  if (!el) return;
+  if (!savedJobs.length) { el.innerHTML='<div class="empty-state"><div class="ico">💼</div>No saved jobs yet.</div>'; return; }
+  el.innerHTML=savedJobs.map(j=>{
+    if (editingJobId&&String(j.id)===String(editingJobId)) return `
+      <div class="card" style="margin-bottom:10px;border-color:var(--y)">
+        <div class="sec-title" style="font-size:0.65rem;margin-bottom:10px">Editing: ${esc(j.name)}</div>
+        <div class="field" style="margin-bottom:8px"><div class="flbl">Job Name</div><input type="text" id="ej-name-${j.id}" value="${esc(j.name)}"></div>
+        <div class="g2" style="margin-bottom:8px">
+          <div class="field"><div class="flbl">Labour (£)</div><input type="number" id="ej-labour-${j.id}" value="${j.labour}" inputmode="decimal"></div>
+          <div class="field"><div class="flbl">Materials (£)</div><input type="number" id="ej-mat-${j.id}" value="${j.mat}" inputmode="decimal"></div>
+        </div>
+        <div class="field" style="margin-bottom:10px"><div class="flbl">Description</div><input type="text" id="ej-desc-${j.id}" value="${esc(j.desc||'')}"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-y" style="flex:2;padding:10px" onclick="updateJob('${j.id}')">✓ Save</button>
+          <button class="btn btn-ghost" style="flex:1;padding:10px" onclick="renderSavedJobsList()">Cancel</button>
+        </div>
+      </div>`;
+    return `
+      <div class="inv-card" style="margin-bottom:8px">
+        <div class="inv-card-left">
+          <div class="inv-card-name">${esc(j.name)}</div>
+          <div class="inv-card-meta">Labour £${j.labour} · Mat £${j.mat}${j.desc?' · '+esc(j.desc):''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-ghost" style="padding:6px 10px;font-size:0.74rem" onclick="editJob('${j.id}')">✏️</button>
+          <button class="btn btn-ghost" style="padding:6px 10px;font-size:0.74rem;color:var(--red);border-color:var(--red)" onclick="deleteJob('${j.id}')">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── CUSTOMER AUTOFILL ──
+function acSearch(val) {
+  const list=document.getElementById('ac-list');
+  if (!val||val.length<2) { list.style.display='none'; return; }
+  const matches=customers.filter(c=>c.name.toLowerCase().includes(val.toLowerCase())).slice(0,6);
+  if (!matches.length) { list.style.display='none'; return; }
+  list.innerHTML=matches.map(c=>`
+    <div class="ac-item" onclick="fillCustomer('${c.id}')">
+      <div><div class="ac-name">${esc(c.name)}</div><div class="ac-sub">${esc(c.addr||c.phone||'')}</div></div>
+      <div style="font-size:0.7rem;color:var(--sub)">${esc(c.phone||'')}</div>
+    </div>`).join('');
+  list.style.display='block';
+}
+
+function fillCustomer(id) {
+  const c=customers.find(c=>c.id===id);
+  if (!c) return;
+  ['name','phone','email','addr'].forEach(k=>{const el=document.getElementById('cust-'+k);if(el)el.value=c[k]||'';});
+  document.getElementById('ac-list').style.display='none';
+  toast(`✓ ${c.name} loaded`);
+}
+
+async function saveCustomer() {
+  const name=g('cust-name').trim();
+  if (!name) { toast('Enter a name first'); return; }
+  const id='c'+Date.now();
+  const existing=customers.findIndex(c=>c.name.toLowerCase()===name.toLowerCase());
+  const cust={id:existing>=0?customers[existing].id:id, name, phone:g('cust-phone'), email:g('cust-email'), addr:g('cust-addr')};
+  if (existing>=0) customers[existing]=cust; else customers.push(cust);
+  await syncCustomer(cust);
+  toast(`✓ ${name} saved`);
+}
+
+document.addEventListener('click', e=>{if(!e.target.closest('.ac-wrap'))document.getElementById('ac-list').style.display='none';});
+
+// ── LINE ITEMS ──
+function addLine(desc='',qty=1,unit=0) {
+  const id=Date.now()+Math.random();
+  rows.push({id,desc,qty,unit}); renderLines();
+}
+function removeLine(id) { rows=rows.filter(r=>r.id!==id); renderLines(); }
+function renderLines() {
+  const c=document.getElementById('lines');
+  c.innerHTML='';
+  rows.forEach(row=>{
+    const d=document.createElement('div');
+    d.className='line-item';
+    d.innerHTML=`
+      <div class="line-top">
+        <input type="text" value="${esc(String(row.desc))}" placeholder="Description" oninput="upd(${row.id},'desc',this.value)">
+        <button class="line-del" onclick="removeLine(${row.id})">✕</button>
+      </div>
+      <div class="line-row">
+        <div class="field"><div class="flbl">Qty</div><input type="number" value="${row.qty}" min="1" step="1" inputmode="numeric" style="text-align:center" oninput="upd(${row.id},'qty',this.value)"></div>
+        <div class="field"><div class="flbl">Unit £</div><input type="number" value="${row.unit||''}" placeholder="0.00" min="0" step="0.01" inputmode="decimal" style="text-align:right" oninput="upd(${row.id},'unit',this.value)"></div>
+        <div class="field"><div class="flbl">Total</div><div class="line-total-val" id="lt-${row.id}">£${(row.qty*row.unit).toFixed(2)}</div></div>
+      </div>`;
+    c.appendChild(d);
+  });
+  calc();
+}
+function upd(id,field,val) {
+  const r=rows.find(r=>r.id===id); if(!r) return;
+  r[field]=field==='desc'?val:(parseFloat(val)||0);
+  const el=document.getElementById(`lt-${r.id}`);
+  if(el) el.textContent=`£${(r.qty*r.unit).toFixed(2)}`;
+  calc();
+}
+
+// ── CALC ──
+function calc() {
+  const mat=rows.reduce((s,r)=>s+r.qty*r.unit,0);
+  const lab=parseFloat(g('labour'))||0;
+  const disc=parseFloat(g('discount'))||0;
+  const vatOn=document.getElementById('vat-on')?.checked;
+  const sub=mat+lab-disc;
+  const vat=vatOn?sub*0.2:0;
+  const tot=sub+vat;
+  document.getElementById('t-mat').textContent=fmtAmt(mat);
+  document.getElementById('t-lab').textContent=fmtAmt(lab);
+  document.getElementById('t-disc').textContent=`−${fmtAmt(disc)}`;
+  document.getElementById('disc-row').style.display=disc>0?'':'none';
+  document.getElementById('t-sub').textContent=fmtAmt(sub);
+  document.getElementById('t-vat').textContent=fmtAmt(vat);
+  document.getElementById('vat-row').style.display=vatOn?'':'none';
+  document.getElementById('t-tot').textContent=fmtAmt(tot);
+  return {mat,lab,disc,sub,vat,tot,vatOn};
+}
+
+// ── SAVE & PREVIEW ──
+async function saveAndPreview() {
+  const totals=calc();
+  const id=editingId||'inv'+Date.now();
+  const payDays=parseInt(settings['payment-days'])||14;
+  const today=new Date().toISOString().split('T')[0];
+  const dueD=new Date(); dueD.setDate(dueD.getDate()+payDays);
+  const dueDate=dueD.toISOString().split('T')[0];
+  const refPrefix=docType==='Invoice'?'INV-':'QUO-';
+  const ref=editingId?(invoices.find(i=>i.id===editingId)||{}).ref||(refPrefix+pad(nextRef)):(refPrefix+pad(nextRef));
+
+  const inv={
+    id, ref, docType, issueDate:today, dueDate,
+    'cust-name':g('cust-name'), 'cust-phone':g('cust-phone'),
+    'cust-email':g('cust-email'), 'cust-addr':g('cust-addr'),
+    labour:g('labour'), discount:g('discount'), notes:g('notes'),
+    vatOn:totals.vatOn,
+    custName:g('cust-name'),
+    status:editingId?(invoices.find(i=>i.id===editingId)||{}).status||'unpaid':'unpaid',
+    total:totals.tot, rows:JSON.parse(JSON.stringify(rows)),
+    savedAt:new Date().toISOString()
+  };
+
+  if (editingId) { const i=invoices.findIndex(x=>x.id===editingId); if(i>=0) invoices[i]=inv; }
+  else { invoices.push(inv); editingId=id; nextRef++; }
+
+  await syncInvoice(inv);
+  renderPreview();
+  updateStatusBadge(inv.status);
+  showScreen('screen-preview');
+  document.querySelectorAll('.btab').forEach(b=>b.classList.remove('active'));
+  toast('✓ Saved & synced');
+}
+
+// ── RENDER PREVIEW ──
+function renderPreview() {
+  const inv=editingId?(invoices.find(i=>i.id===editingId)||{}):{};
+  const {mat,lab,disc,sub,vat,tot,vatOn}=calc();
+  const dt=docType;
+  const bizName=settings['biz-name']||'Your Business';
+  const bizPhone=settings['biz-phone']||'';
+  const bizEmail=settings['biz-email']||'';
+  const bizReg=settings['biz-reg']?` · Reg: ${esc(settings['biz-reg'])}`:'';
+  const irows=rows.map(r=>`<tr><td>${esc(r.desc)||'—'}</td><td>${r.qty}</td><td>${fmtAmt(r.unit)}</td><td>${fmtAmt(r.qty*r.unit)}</td></tr>`).join('');
+  const labRow=lab>0?`<tr><td>Labour</td><td>—</td><td>—</td><td>${fmtAmt(lab)}</td></tr>`:'';
+  const discRow=disc>0?`<tr><td colspan="3" style="text-align:right;color:#999;font-size:0.76rem">Discount</td><td style="color:#c00">−${fmtAmt(disc)}</td></tr>`:'';
+  const vatRow=vatOn?`<tr><td colspan="3" style="text-align:right;color:#999;font-size:0.76rem">VAT (20%)</td><td>${fmtAmt(vat)}</td></tr>`:'';
+  const notesVal=g('notes');
+  document.getElementById('inv-preview').innerHTML=`
+    <div class="ih">
+      <div><div class="ih-name">⚡ ${esc(bizName)}</div><div class="ih-sub">${esc(bizPhone)} · ${esc(bizEmail)}${bizReg}</div></div>
+      <div class="ih-right"><div class="ih-type">${dt}</div><div class="ih-meta">Ref: <strong>${esc(inv.ref||'—')}</strong><br>Issued: ${fmt(inv.issueDate||'')}<br>${dt==='Invoice'?'Due':'Valid'}: ${fmt(inv.dueDate||'')}</div></div>
+    </div>
+    <div class="ip">
+      <div><div class="ip-lbl">From</div><div class="ip-name">${esc(bizName)}</div><div class="ip-detail">${esc(bizPhone)}<br>${esc(bizEmail)}</div></div>
+      <div><div class="ip-lbl">Bill To</div><div class="ip-name">${esc(g('cust-name'))||'—'}</div><div class="ip-detail">${esc(g('cust-addr'))}<br>${esc(g('cust-phone'))}</div></div>
+    </div>
+    <table class="it">
+      <colgroup><col class="c1"><col class="c2"><col class="c3"><col class="c4"></colgroup>
+      <thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead>
+      <tbody>${irows}${labRow}</tbody>
+      <tfoot>
+        <tr><td colspan="3" style="text-align:right;color:#999;font-size:0.76rem">Subtotal</td><td>${fmtAmt(sub)}</td></tr>
+        ${discRow}${vatRow}
+        <tr class="grand"><td colspan="3">Total Due</td><td>${fmtAmt(tot)}</td></tr>
+      </tfoot>
+    </table>
+    ${notesVal?`<div class="i-notes"><strong>Notes &amp; Terms</strong>${esc(notesVal)}</div>`:''}
+    <div class="i-footer">All work to BS 7671 18th Edition · Thank you for your business</div>`;
+}
+
+// ── STATUS ──
+function updateStatusBadge(status) {
+  const b=document.getElementById('status-badge');
+  b.className='badge badge-'+status;
+  b.textContent=status.charAt(0).toUpperCase()+status.slice(1);
+}
+
+async function setStatus(status) {
+  if (editingId) {
+    const inv=invoices.find(i=>i.id===editingId);
+    if (inv) { inv.status=status; await syncInvoice(inv); }
+  }
+  updateStatusBadge(status);
+  renderDash();
+  toast(status==='paid'?'✓ Marked Paid 🎉':'Marked '+status);
+}
+
+// ── SEND ──
+function getMsg() {
+  const t=calc().tot;
+  const bizName=settings['biz-name']||'Your electrician';
+  const ref=(invoices.find(i=>i.id===editingId)||{}).ref||'';
+  const payDays=parseInt(settings['payment-days'])||14;
+  return `Hi ${g('cust-name')||'there'}, please find your ${docType.toLowerCase()} from ${bizName}.\n\nRef: ${ref}\nTotal: £${t.toFixed(2)}\nPayment due within ${payDays} days.\n\nThank you for your business.`;
+}
+function sendWhatsApp() { const p=g('cust-phone').replace(/\s/g,'').replace(/^0/,'44'); window.open(`https://wa.me/${p}?text=${encodeURIComponent(getMsg())}`,'_blank'); }
+function sendEmail() {
+  const bizName=settings['biz-name']||'SparkInvoice';
+  const ref=(invoices.find(i=>i.id===editingId)||{}).ref||'';
+  window.open(`mailto:${g('cust-email')}?subject=${encodeURIComponent(`${docType} from ${bizName} – ${ref}`)}&body=${encodeURIComponent(getMsg()+'\n\n(See attached PDF)')}`, '_blank');
+}
+
+// ── CLEAR FORM ──
+function clearForm() {
+  rows=[]; renderLines();
+  ['cust-name','cust-phone','cust-email','cust-addr','labour','discount','notes'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
+  document.getElementById('vat-on').checked=false;
+  document.getElementById('ac-list').style.display='none';
+  if (settings['default-labour']) document.getElementById('labour').value=settings['default-labour'];
+  notesOpen=false;
+  document.getElementById('notes-wrap').style.display='none';
+  document.getElementById('notes-tog').textContent='+ Add';
+  if (settings['default-notes']) { document.getElementById('notes').value=settings['default-notes']; }
+  setType('Quote'); calc();
+}
+
+// ── INIT ──
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    user = session.user;
+    await bootApp();
+  } else {
+    document.getElementById('loading-screen').style.display='none';
+    document.getElementById('auth-screen').style.display='flex';
+  }
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event==='SIGNED_IN' && session?.user && !user) {
+      user=session.user; await bootApp();
+    }
+    if (event==='SIGNED_OUT') {
+      user=null;
+      document.getElementById('app').style.display='none';
+      document.getElementById('auth-screen').style.display='flex';
+    }
+  });
+})();
+</script>
+</body>
+</html>
